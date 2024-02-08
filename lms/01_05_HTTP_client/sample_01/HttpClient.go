@@ -18,7 +18,7 @@ func main() {
   if err != nil {
     fmt.Println(err.Error())
     return
-}
+  }
   // читаем тело ответа
   body, err := io.ReadAll(resp.Body)
   if err != nil {

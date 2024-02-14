@@ -2,6 +2,7 @@ package main
 import (
   "os"
   "fmt"
+  "time"
   "bufio"
   "strings"
   "errors"
@@ -15,9 +16,9 @@ type World struct {
 }
 
 func NewWorld(height, width int) *World {
-  cells := make([][]bool height)
+  cells := make([][]bool, height)
   for i := range cells {
-     cells[i] = make([]bool width)
+     cells[i] = make([]bool, width)
   }
   return &World{
     Height: height,
@@ -60,8 +61,44 @@ func (w *World) Neighbors(x, y int) int {
   return n
 }
 
+func (w *World) NeighborsOnThor(x, y int) int {
+  var n int
+  y_prev := (y - 1 + w.Height) % w.Height
+  x_prev := (x - 1 + w.Width) % w.Width
+  y_next := (y + 1) % w.Height
+  x_next := (x + 1) % w.Width
+
+  if w.Cells[y_prev][x_prev] {
+    n++
+  }
+  if w.Cells[y_prev][x] {
+    n++
+  }
+  if w.Cells[y_prev][x_next] {
+    n++
+  }
+  if w.Cells[y][x_prev] {
+    n++
+  }
+  if w.Cells[y][x_next] {
+    n++
+  }
+  if w.Cells[y_next][x_prev] {
+    n++
+  }
+  if w.Cells[y_next][x] {
+    n++
+  }
+  if w.Cells[y_next][x_next] {
+    n++
+  }
+
+  return n
+}
+
 func (w *World) Next(x, y int) bool {
-  n := w.Neightbours(x, y)
+  //n := w.Neighbors(x, y)
+  n := w.NeighborsOnThor(x, y)
   alive := w.Cells[y][x]
 
   if n < 4 && n > 1 && alive {
@@ -74,15 +111,15 @@ func (w *World) Next(x, y int) bool {
 }
 
 func NextState(oldWorld, newWorld *World) {
-  for i := 0; i < oldWorld.Heigth; i++ {
-    for j := 0; j < oldWorld.Width; i++ {
-      newWorld[i][j] = oldWorld.Next(j, i)
+  for i := 0; i < oldWorld.Height; i++ {
+    for j := 0; j < oldWorld.Width; j++ {
+      newWorld.Cells[i][j] = oldWorld.Next(j, i)
     }
   }
 }
 
 func (w *World) Seed() {
-  for _, row := range Cells {
+  for _, row := range w.Cells {
     for i := range row {
       if rand.Intn(10) == 1 {
         row[i] = true
@@ -208,9 +245,9 @@ func main() {
 
   currentWorld.Seed()
   for {
-    fmt.Println(CurrentWorld)
+    fmt.Println(currentWorld)
     NextState(currentWorld, nextWorld)
-    currentWorld = NextWorld
+    currentWorld = nextWorld
     time.Sleep(100 * time.Millisecond)
     fmt.Print("\033[H\033[2J")
   }

@@ -1,8 +1,10 @@
 package main
-
 import (
   "os"
   "fmt"
+  "bufio"
+  "strings"
+  "errors"
   "math/rand"
 )
 
@@ -82,6 +84,56 @@ func (w *World) SaveState(filename string) error {
   return nil
 }
 
+func (w *World) LoadState(filename string) error {
+  var width int
+  var height int
+  var lines []string
+  var cells [][]bool
+
+  file, err := os.Open(filename)
+  if err != nil {
+    return err
+  }
+  defer file.Close()
+
+  fileScanner := bufio.NewScanner(file)
+  for fileScanner.Scan() {
+    str := strings.TrimSpace(fileScanner.Text())
+    if width != 0 && len(str) != width {
+      return errors.New("Incorrect file") 
+    } else {
+      width = len(str)
+    }
+    lines = append(lines, str)
+  }
+
+  height = len(lines)
+  if height < 1 || width < 1 {
+    return errors.New("Incorrect file") 
+  }
+
+  cells = make([][]bool, height)
+  for i := 0; i < height; i++ {
+    cells[i] = make([]bool, width)
+  }
+
+  for i, line := range lines {
+    for j, c := range line {
+      if c == '1' {
+        cells[i][j] = true
+      } else if c != '0' {
+        return errors.New("Incorrect file")
+      }
+    }
+  }
+
+  w.Height = height
+  w.Width = width
+  w.Cells = cells
+
+  return nil
+}
+
 func main() {
   height := 10
   width := 10
@@ -97,3 +149,4 @@ func main() {
     fmt.Print("\033[H\033[2J")
   }
 }
+

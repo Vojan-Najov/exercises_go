@@ -67,7 +67,7 @@ func main() {
   }
 
   world := World{Height: 5, Width: 10, Cells: cells}
-  if err := world.SaveState("tmp.txt"); err != nil {
+  if err := world.SaveState("state.txt"); err != nil {
     fmt.Println(err)
   }
 }

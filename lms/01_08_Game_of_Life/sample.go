@@ -26,8 +26,38 @@ func NewWorld(height, width int) *World {
   }
 }
 
-func (w *World) Neighbours(x, y int) {
+func (w *World) Neighbors(x, y int) int {
+  var n int
+  if y - 1 >= 0 {
+    if x - 1 >= 0 && w.Cells[y-1][x-1] {
+      n++
+    }
+    if w.Cells[y-1][x] {
+      n++
+    }
+    if x + 1 < w.Width && w.Cells[y-1][x+1] {
+      n++
+    }
+  }
+  if x - 1 >= 0 && w.Cells[y][x-1] {
+    n++
+  }
+  if x + 1 < w.Width && w.Cells[y][x+1] {
+    n++
+  }
+  if y + 1 < w.Height {
+    if x - 1 >= 0 && w.Cells[y+1][x-1] {
+      n++
+    }
+    if w.Cells[y+1][x] {
+      n++
+    }
+    if x + 1 < w.Width && w.Cells[y+1][x+1] {
+      n++
+    }
+  }
 
+  return n
 }
 
 func (w *World) Next(x, y int) bool {
@@ -132,6 +162,42 @@ func (w *World) LoadState(filename string) error {
   w.Cells = cells
 
   return nil
+}
+
+func (w *World) String() string {
+  count := 4
+  symbols := make([]byte, w.Height * w.Width * count + w.Height - 1)
+
+  var i int
+  for k, row := range w.Cells {
+    for _, cell := range row {
+      if cell {
+        symbols[i] = '\xF0'
+        i++
+        symbols[i] = '\x9F'
+        i++
+        symbols[i] = '\x9F'
+        i++
+        symbols[i] = '\xA9'
+        i++
+      } else {
+        symbols[i] = '\xF0'
+        i++
+        symbols[i] = '\x9F'
+        i++
+        symbols[i] = '\x9F'
+        i++
+        symbols[i] = '\xAB'
+        i++
+      }
+    }
+    if k < w.Height - 1 {
+      symbols[i] = '\n'
+      i++
+    }
+  }
+
+  return string(symbols)
 }
 
 func main() {

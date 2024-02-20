@@ -1,0 +1,3 @@
+module workerInfo
+
+go 1.21.6

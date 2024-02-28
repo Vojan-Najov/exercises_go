@@ -247,7 +247,7 @@ func main() {
   for {
     fmt.Println(currentWorld)
     NextState(currentWorld, nextWorld)
-    currentWorld = nextWorld
+    currentWorld, nextWorld = nextWorld, currentWorld
     time.Sleep(100 * time.Millisecond)
     fmt.Print("\033[H\033[2J")
   }

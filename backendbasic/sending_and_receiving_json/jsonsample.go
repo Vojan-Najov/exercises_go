@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -57,12 +59,12 @@ func getTime(w http.ResponseWriter, r *http.Request) {
 
 var client = &http.Client{Timeout: 2 * time.Second}
 
-func sendRequest(tz, format string) {
+func sendRequest(url, tz, format string) {
 	body := new(bytes.Buffer)
 	json.NewEncoder(body).Encode(Request{TZ: tz, Format: format})
 	log.Printf("request body: %v", body)
 	req, err := http.NewRequestWithContext(
-		context.TODO(), "GET", "http://localhost:8080", body,
+		context.TODO(), "GET", url, body,
 	)
 	if err != nil {
 		panic(err)
@@ -75,12 +77,83 @@ func sendRequest(tz, format string) {
 	resp.Body.Close() // always close response bodies when you're do with them
 }
 
-func main() {
-	server := http.Server{Addr: ":8080", Handler: http.HandlerFunc(getTime)}
-	go server.ListenAndServe()
+// Helpful generic functions
+// Reading and writing JSON can seem tedious. The following generic functions can help
+// reduce boilerplate and help you avoid common 'gotchas', like forgetting to close
+// the response body.
 
-	sendRequest("", "") // rely on defaults
-	sendRequest("America/Los_Angeles", time.RFC822Z)
-	sendRequest("America/New_York", time.RFC822Z)
-	sendRequest("faketz", "")
+// ReadJSON reads a JSON object from an io.ReadCloser, closing the reader when it's
+// done. It's primarily useful for reading JSON from *http.Request.Body.
+func ReadJSON[T any](r io.ReadCloser) (T, error) {
+	var v T                               // declare a variable of type T
+	err := json.NewDecoder(r).Decode(&v)  // decode the JSON into v
+	return v, errors.Join(err, r.Close()) // close the reader and return any errors.
+}
+
+// WriteJSON writes a JSON object to a http.ResponseWriter,
+// setting the Content-Type header to application/json.
+func WriteJSON(w http.ResponseWriter, v any) error {
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(v)
+}
+
+// Similarly, you may wish to define some helper functions for your own JSON APIs.
+
+// WriteError logs an error, then writes it as a JSON object in the form
+// {"error": <error>}, setting the Content-Type header to application/json.
+func WriteError(w http.ResponseWriter, err error, code int) {
+	// log the error; http.StatusText gets "Not Found" from 4040, etc.
+	log.Printf("%d %v: %v", code, http.StatusText(code), err)
+	w.Header().Set("Content-Type", "encoding/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(Error{err.Error()})
+}
+
+// The combination of anonymous structs and generics allows us to write much
+// more compact handlers without dragging in a full-blown web framework
+// Let's rewrite the logic of getTime to use this technique.
+
+// http handler: writes current time as JSON object (`{"Time": <time>}`)
+func getTimeCompact(w http.ResponseWriter, r *http.Request) {
+	req, err := ReadJSON[struct{ TZ, Format string }](r.Body)
+	if err != nil {
+		WriteError(w, err, 400)
+		return
+	}
+	var tz *time.Location = time.Local
+	if req.TZ != "" {
+		var err error
+		tz, err = time.LoadLocation(req.TZ)
+		if err != nil {
+			WriteError(w, err, 400)
+			return
+		}
+	}
+	format := time.RFC3339
+	if req.Format != "" {
+		format = req.Format
+	}
+	WriteJSON(w, Response{time.Now().In(tz).Format(format)})
+}
+
+func main() {
+	{
+		server := http.Server{Addr: ":8080", Handler: http.HandlerFunc(getTime)}
+		go server.ListenAndServe()
+
+		sendRequest("http://localhost:8080", "", "") // rely on defaults
+		sendRequest("http://localhost:8080", "America/Los_Angeles", time.RFC822Z)
+		sendRequest("http://localhost:8080", "America/New_York", time.RFC822Z)
+		sendRequest("http://localhost:8080", "faketz", "")
+	}
+	{
+		server := http.Server{Addr: ":8081", Handler: http.HandlerFunc(getTimeCompact)}
+		go server.ListenAndServe()
+
+		sendRequest("http://localhost:8081", "", "") // rely on defaults
+		sendRequest("http://localhost:8081", "America/Los_Angeles", time.RFC822Z)
+		sendRequest("http://localhost:8081", "America/New_York", time.RFC822Z)
+		sendRequest("http://localhost:8081", "faketz", "")
+
+	}
 }
